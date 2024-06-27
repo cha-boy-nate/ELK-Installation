@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status
+# Exit on error
 set -e
 
 # Variables for passwords
@@ -80,32 +80,7 @@ node.name: "node-1"
 network.host: "localhost"
 http.port: 9200
 discovery.type: single-node
-xpack.security.enabled: true
 EOF'
-
-# Ensure the jvm.options file exists
-if [ ! -f /etc/elasticsearch/jvm.options ]; then
-  echo "Creating default jvm.options file..."
-  sudo bash -c 'cat << EOF > /etc/elasticsearch/jvm.options
--Xms1g
--Xmx1g
--XX:+UseG1GC
--Djava.awt.headless=true
--Dfile.encoding=UTF-8
--Djna.nosys=true
--Djdk.io.permissionsUseCanonicalPath=true
--Dio.netty.noUnsafe=true
--Dio.netty.noKeySetOptimization=true
--Dio.netty.recycler.maxCapacityPerThread=0
--Dlog4j2.disable.jmx=true
--XX:+AlwaysPreTouch
--server
--XX:+HeapDumpOnOutOfMemoryError
--XX:HeapDumpPath=data
--XX:ErrorFile=logs/hs_err_pid%p.log
--XX:+DisableExplicitGC
-EOF'
-fi
 
 # Set ownership and permissions
 sudo chown -R elasticsearch:elasticsearch /etc/elasticsearch
@@ -129,10 +104,6 @@ fi
 # Wait for Elasticsearch to start
 echo "Waiting for Elasticsearch to start..."
 sleep 20
-
-# Set passwords for built-in users
-echo "Setting passwords for built-in users..."
-echo "y" | sudo /usr/share/elasticsearch/bin/elasticsearch-setup-passwords auto -u "http://localhost:9200"
 
 # Install Logstash
 echo "Installing Logstash..."
@@ -178,9 +149,6 @@ sudo bash -c 'cat << EOF > /etc/kibana/kibana.yml
 server.port: 5601
 server.host: "localhost"
 elasticsearch.hosts: ["http://localhost:9200"]
-elasticsearch.username: "elastic"
-elasticsearch.password: "$ELASTIC_PASSWORD"
-xpack.security.enabled: true
 EOF'
 
 # Start and enable Kibana service
@@ -188,12 +156,5 @@ echo "Starting Kibana service..."
 sudo systemctl enable kibana
 sudo systemctl start kibana
 
-# Set the kibana user's password
-echo "Setting Kibana user password..."
-until curl -s -X POST "localhost:9200/_security/user/kibana/_password" -H "Content-Type: application/json" -u elastic:$ELASTIC_PASSWORD -d "{ \"password\": \"$KIBANA_PASSWORD\" }"; do
-  echo "Kibana is not ready yet. Waiting..."
-  sleep 5
-done
-
 echo "ELK Stack installation and configuration completed."
-echo "You can access Kibana at http://localhost:5601 with username 'elastic' and the password you set."
+echo "You can access Kibana at http://localhost:5601."
