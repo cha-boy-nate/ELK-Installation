@@ -3,17 +3,6 @@
 # Exit on error
 set -e
 
-# Function to fetch the latest version of a package
-get_latest_version() {
-  PACKAGE=$1
-  curl -s "https://www.elastic.co/downloads/past-releases/$PACKAGE" | grep -oP '">'"$PACKAGE"'-\K[0-9]+\.[0-9]+\.[0-9]+' | head -1
-}
-
-# Fetch the latest versions
-ES_VERSION=$(get_latest_version "elasticsearch")
-LOGSTASH_VERSION=$(get_latest_version "logstash")
-KIBANA_VERSION=$(get_latest_version "kibana")
-
 # Variables for passwords
 ELASTIC_PASSWORD="your_elastic_password"
 KIBANA_PASSWORD="your_kibana_password"
@@ -35,8 +24,8 @@ sudo sh -c 'echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main"
 sudo apt update
 
 # Install Elasticsearch
-echo "Installing Elasticsearch version $ES_VERSION..."
-sudo apt install -y elasticsearch=$ES_VERSION
+echo "Installing Elasticsearch..."
+sudo apt install -y elasticsearch
 
 # Configure Elasticsearch
 echo "Configuring Elasticsearch..."
@@ -65,8 +54,8 @@ done
 echo "Elasticsearch is running."
 
 # Install Logstash
-echo "Installing Logstash version $LOGSTASH_VERSION..."
-sudo apt install -y logstash=$LOGSTASH_VERSION
+echo "Installing Logstash..."
+sudo apt install -y logstash
 
 # Configure Logstash (this is a basic config, adjust as needed)
 echo "Configuring Logstash..."
@@ -93,8 +82,8 @@ sudo systemctl enable logstash
 sudo systemctl start logstash
 
 # Install Kibana
-echo "Installing Kibana version $KIBANA_VERSION..."
-sudo apt install -y kibana=$KIBANA_VERSION
+echo "Installing Kibana..."
+sudo apt install -y kibana
 
 # Configure Kibana
 echo "Configuring Kibana..."
