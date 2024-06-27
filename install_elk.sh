@@ -68,6 +68,17 @@ sudo apt install -y elasticsearch
 # Ensure the Elasticsearch configuration directory exists
 sudo mkdir -p /etc/elasticsearch
 
+# Configure Elasticsearch
+echo "Configuring Elasticsearch..."
+sudo bash -c 'cat << EOF > /etc/elasticsearch/elasticsearch.yml
+cluster.name: "myCluster"
+node.name: "node-1"
+network.host: "localhost"
+http.port: 9200
+discovery.type: single-node
+xpack.security.enabled: true
+EOF'
+
 # Ensure the jvm.options file exists or create it if it doesn't
 if [ ! -f /etc/elasticsearch/jvm.options ]; then
   echo "Creating default jvm.options file..."
@@ -75,9 +86,6 @@ if [ ! -f /etc/elasticsearch/jvm.options ]; then
 -Xms1g
 -Xmx1g
 -XX:+UseG1GC
--XX:+UseConcMarkSweepGC
--XX:CMSInitiatingOccupancyFraction=75
--XX:+UseCMSInitiatingOccupancyOnly
 -Djava.awt.headless=true
 -Dfile.encoding=UTF-8
 -Djna.nosys=true
@@ -88,17 +96,16 @@ if [ ! -f /etc/elasticsearch/jvm.options ]; then
 -Dlog4j2.disable.jmx=true
 -XX:+AlwaysPreTouch
 -server
--Djava.io.tmpdir=${ES_TMPDIR}
 -XX:+HeapDumpOnOutOfMemoryError
 -XX:HeapDumpPath=data
 -XX:ErrorFile=logs/hs_err_pid%p.log
 -XX:+DisableExplicitGC
--XX:+AggressiveOpts
--XX:+OptimizeStringConcat
--XX:+UseCompressedOops
--XX:+UseCompressedClassPointers
 EOF'
 fi
+
+# Ensure the data directories exist
+sudo mkdir -p /var/lib/elasticsearch
+sudo mkdir -p /var/log/elasticsearch
 
 # Set ownership and permissions
 sudo chown -R elasticsearch:elasticsearch /etc/elasticsearch
