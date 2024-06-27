@@ -7,6 +7,44 @@ set -e
 ELASTIC_PASSWORD="your_elastic_password"
 KIBANA_PASSWORD="your_kibana_password"
 
+# Function to stop and remove services if they exist
+stop_and_remove_service() {
+  SERVICE=$1
+  if systemctl is-active --quiet $SERVICE; then
+    echo "Stopping $SERVICE service..."
+    sudo systemctl stop $SERVICE
+  fi
+  if systemctl is-enabled --quiet $SERVICE; then
+    echo "Disabling $SERVICE service..."
+    sudo systemctl disable $SERVICE
+  fi
+}
+
+# Function to remove existing directories if they exist
+remove_directory() {
+  DIR=$1
+  if [ -d "$DIR" ]; then
+    echo "Removing $DIR..."
+    sudo rm -rf "$DIR"
+  fi
+}
+
+# Stop and remove existing Elasticsearch, Logstash, and Kibana services
+stop_and_remove_service "elasticsearch"
+stop_and_remove_service "logstash"
+stop_and_remove_service "kibana"
+
+# Remove existing configuration and data directories
+remove_directory "/etc/elasticsearch"
+remove_directory "/var/lib/elasticsearch"
+remove_directory "/var/log/elasticsearch"
+remove_directory "/etc/logstash"
+remove_directory "/var/lib/logstash"
+remove_directory "/var/log/logstash"
+remove_directory "/etc/kibana"
+remove_directory "/var/lib/kibana"
+remove_directory "/var/log/kibana"
+
 # Update and install prerequisites
 echo "Updating and installing prerequisites..."
 sudo apt update && sudo apt upgrade -y
@@ -44,14 +82,20 @@ sudo systemctl daemon-reload
 sudo systemctl enable elasticsearch
 sudo systemctl start elasticsearch
 
-# Wait for Elasticsearch to start and set the elastic user's password
-echo "Waiting for Elasticsearch to start..."
-until curl -s -X POST "localhost:9200/_security/user/elastic/_password" -H "Content-Type: application/json" -u elastic:changeme -d "{ \"password\": \"$ELASTIC_PASSWORD\" }"; do
-  echo "Elasticsearch is not ready yet. Waiting..."
-  sleep 5
-done
+# Check Elasticsearch status
+if ! sudo systemctl is-active --quiet elasticsearch; then
+  echo "Elasticsearch failed to start. Checking logs..."
+  sudo journalctl -u elasticsearch -xe
+  exit 1
+fi
 
-echo "Elasticsearch is running."
+# Wait for Elasticsearch to start
+echo "Waiting for Elasticsearch to start..."
+sleep 20
+
+# Set passwords for built-in users
+echo "Setting passwords for built-in users..."
+echo "y" | sudo /usr/share/elasticsearch/bin/elasticsearch-setup-passwords auto -u "http://localhost:9200"
 
 # Install Logstash
 echo "Installing Logstash..."
