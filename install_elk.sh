@@ -1,53 +1,79 @@
 #!/bin/bash
 
-# Exit on error
+# Exit immediately if a command exits with a non-zero status
 set -e
 
-# Variables
-ES_VERSION="7.17.0"
-LOGSTASH_VERSION="7.17.0"
-KIBANA_VERSION="7.17.0"
-ELASTIC_PASSWORD="your_elastic_password"
-KIBANA_PASSWORD="your_kibana_password"
+LOG_FILE="elk_install.log"
+echo "Starting ELK installation..." | tee -a $LOG_FILE
 
 # Update and install prerequisites
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y apt-transport-https openjdk-11-jdk wget curl gnupg
+echo "Updating and installing prerequisites..." | tee -a $LOG_FILE
+sudo apt update | tee -a $LOG_FILE
+sudo apt upgrade -y | tee -a $LOG_FILE
+sudo apt install -y apt-transport-https openjdk-11-jdk wget curl gnupg | tee -a $LOG_FILE
 
 # Add the Elastic GPG key
-wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
+echo "Adding the Elastic GPG key..." | tee -a $LOG_FILE
+wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add - | tee -a $LOG_FILE
 
 # Add the Elastic repository
-sudo sh -c 'echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" > /etc/apt/sources.list.d/elastic-7.x.list'
+echo "Adding the Elastic repository..." | tee -a $LOG_FILE
+sudo sh -c 'echo "deb https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list'
 
-# Update and install Elasticsearch
-sudo apt update
-sudo apt install -y elasticsearch=$ES_VERSION
+# Update package lists
+echo "Updating package lists..." | tee -a $LOG_FILE
+sudo apt update | tee -a $LOG_FILE
+
+# Install Elasticsearch
+echo "Installing Elasticsearch..." | tee -a $LOG_FILE
+sudo apt install -y elasticsearch | tee -a $LOG_FILE
 
 # Configure Elasticsearch
+echo "Configuring Elasticsearch..." | tee -a $LOG_FILE
 sudo bash -c 'cat << EOF > /etc/elasticsearch/elasticsearch.yml
 cluster.name: "myCluster"
 node.name: "node-1"
 network.host: "localhost"
 http.port: 9200
 discovery.type: single-node
-xpack.security.enabled: true
 EOF'
 
-# Start and enable Elasticsearch service
-sudo systemctl enable elasticsearch
-sudo systemctl start elasticsearch
+# Ensure necessary directories exist
+echo "Ensuring necessary directories exist..." | tee -a $LOG_FILE
+sudo mkdir -p /var/lib/elasticsearch
+sudo mkdir -p /var/log/elasticsearch
 
-# Set the elastic user's password
-until curl -s -X POST "localhost:9200/_security/user/elastic/_password" -H "Content-Type: application/json" -u elastic:changeme -d "{ \"password\": \"$ELASTIC_PASSWORD\" }"; do
-  echo "Waiting for Elasticsearch to start..."
-  sleep 5
-done
+# Set ownership and permissions
+echo "Setting ownership and permissions..." | tee -a $LOG_FILE
+sudo chown -R elasticsearch:elasticsearch /etc/elasticsearch /var/lib/elasticsearch /var/log/elasticsearch
+
+# Start and enable Elasticsearch service
+echo "Starting and enabling Elasticsearch service..." | tee -a $LOG_FILE
+sudo systemctl daemon-reload | tee -a $LOG_FILE
+sudo systemctl enable elasticsearch | tee -a $LOG_FILE
+sudo systemctl start elasticsearch | tee -a $LOG_FILE
+
+# Wait for Elasticsearch to start
+echo "Waiting for Elasticsearch to start..." | tee -a $LOG_FILE
+sleep 20
+
+# Check Elasticsearch status
+echo "Checking Elasticsearch status..." | tee -a $LOG_FILE
+if ! sudo systemctl is-active --quiet elasticsearch; then
+  echo "Elasticsearch failed to start. Checking logs..." | tee -a $LOG_FILE
+  sudo journalctl -u elasticsearch -xe | tee -a $LOG_FILE
+  sudo cat /var/log/elasticsearch/elasticsearch.log | tee -a $LOG_FILE
+  exit 1
+fi
+echo "Elasticsearch started successfully." | tee -a $LOG_FILE
 
 # Install Logstash
-sudo apt install -y logstash=$LOGSTASH_VERSION
+echo "Installing Logstash..." | tee -a $LOG_FILE
+sudo apt install -y logstash | tee -a $LOG_FILE
 
-# Configure Logstash (this is a basic config, adjust as needed)
+# Configure Logstash
+echo "Configuring Logstash..." | tee -a $LOG_FILE
+sudo mkdir -p /etc/logstash/conf.d
 sudo bash -c 'cat << EOF > /etc/logstash/conf.d/logstash.conf
 input {
   beats {
@@ -57,39 +83,60 @@ input {
 output {
   elasticsearch {
     hosts => ["localhost:9200"]
-    user => "elastic"
-    password => "$ELASTIC_PASSWORD"
   }
   stdout { codec => rubydebug }
 }
 EOF'
 
 # Start and enable Logstash service
-sudo systemctl enable logstash
-sudo systemctl start logstash
+echo "Starting and enabling Logstash service..." | tee -a $LOG_FILE
+sudo systemctl enable logstash | tee -a $LOG_FILE
+sudo systemctl start logstash | tee -a $LOG_FILE
+
+# Wait for Logstash to start
+echo "Waiting for Logstash to start..." | tee -a $LOG_FILE
+sleep 20
+
+# Check Logstash status
+echo "Checking Logstash status..." | tee -a $LOG_FILE
+if ! sudo systemctl is-active --quiet logstash; then
+  echo "Logstash failed to start. Checking logs..." | tee -a $LOG_FILE
+  sudo journalctl -u logstash -xe | tee -a $LOG_FILE
+  sudo cat /var/log/logstash/logstash-plain.log | tee -a $LOG_FILE
+  exit 1
+fi
+echo "Logstash started successfully." | tee -a $LOG_FILE
 
 # Install Kibana
-sudo apt install -y kibana=$KIBANA_VERSION
+echo "Installing Kibana..." | tee -a $LOG_FILE
+sudo apt install -y kibana | tee -a $LOG_FILE
 
 # Configure Kibana
+echo "Configuring Kibana..." | tee -a $LOG_FILE
 sudo bash -c 'cat << EOF > /etc/kibana/kibana.yml
 server.port: 5601
 server.host: "localhost"
 elasticsearch.hosts: ["http://localhost:9200"]
-elasticsearch.username: "elastic"
-elasticsearch.password: "$ELASTIC_PASSWORD"
-xpack.security.enabled: true
 EOF'
 
 # Start and enable Kibana service
-sudo systemctl enable kibana
-sudo systemctl start kibana
+echo "Starting and enabling Kibana service..." | tee -a $LOG_FILE
+sudo systemctl enable kibana | tee -a $LOG_FILE
+sudo systemctl start kibana | tee -a $LOG_FILE
 
-# Set the kibana user's password
-until curl -s -X POST "localhost:9200/_security/user/kibana/_password" -H "Content-Type: application/json" -u elastic:$ELASTIC_PASSWORD -d "{ \"password\": \"$KIBANA_PASSWORD\" }"; do
-  echo "Waiting for Kibana to start..."
-  sleep 5
-done
+# Wait for Kibana to start
+echo "Waiting for Kibana to start..." | tee -a $LOG_FILE
+sleep 20
 
-echo "ELK Stack installation and configuration completed."
-echo "You can access Kibana at http://localhost:5601 with username 'elastic' and the password you set."
+# Check Kibana status
+echo "Checking Kibana status..." | tee -a $LOG_FILE
+if ! sudo systemctl is-active --quiet kibana; then
+  echo "Kibana failed to start. Checking logs..." | tee -a $LOG_FILE
+  sudo journalctl -u kibana -xe | tee -a $LOG_FILE
+  sudo cat /var/log/kibana/kibana.log | tee -a $LOG_FILE
+  exit 1
+fi
+echo "Kibana started successfully." | tee -a $LOG_FILE
+
+echo "ELK Stack installation and configuration completed successfully." | tee -a $LOG_FILE
+echo "You can access Kibana at http://localhost:5601." | tee -a $LOG_FILE
