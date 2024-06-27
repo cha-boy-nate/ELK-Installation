@@ -68,22 +68,42 @@ sudo apt install -y elasticsearch
 # Ensure the Elasticsearch configuration directory exists
 sudo mkdir -p /etc/elasticsearch
 
-# Configure Elasticsearch
-echo "Configuring Elasticsearch..."
-sudo bash -c 'cat << EOF > /etc/elasticsearch/elasticsearch.yml
-cluster.name: "myCluster"
-node.name: "node-1"
-network.host: "localhost"
-http.port: 9200
-discovery.type: single-node
-xpack.security.enabled: true
-EOF'
-
-# Ensure the jvm.options file exists
+# Ensure the jvm.options file exists or create it if it doesn't
 if [ ! -f /etc/elasticsearch/jvm.options ]; then
   echo "Creating default jvm.options file..."
-  sudo cp /usr/share/elasticsearch/config/jvm.options /etc/elasticsearch/
+  sudo bash -c 'cat << EOF > /etc/elasticsearch/jvm.options
+-Xms1g
+-Xmx1g
+-XX:+UseG1GC
+-XX:+UseConcMarkSweepGC
+-XX:CMSInitiatingOccupancyFraction=75
+-XX:+UseCMSInitiatingOccupancyOnly
+-Djava.awt.headless=true
+-Dfile.encoding=UTF-8
+-Djna.nosys=true
+-Djdk.io.permissionsUseCanonicalPath=true
+-Dio.netty.noUnsafe=true
+-Dio.netty.noKeySetOptimization=true
+-Dio.netty.recycler.maxCapacityPerThread=0
+-Dlog4j2.disable.jmx=true
+-XX:+AlwaysPreTouch
+-server
+-Djava.io.tmpdir=${ES_TMPDIR}
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=data
+-XX:ErrorFile=logs/hs_err_pid%p.log
+-XX:+DisableExplicitGC
+-XX:+AggressiveOpts
+-XX:+OptimizeStringConcat
+-XX:+UseCompressedOops
+-XX:+UseCompressedClassPointers
+EOF'
 fi
+
+# Set ownership and permissions
+sudo chown -R elasticsearch:elasticsearch /etc/elasticsearch
+sudo chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
+sudo chown -R elasticsearch:elasticsearch /var/log/elasticsearch
 
 # Start and enable Elasticsearch service
 echo "Starting Elasticsearch service..."
