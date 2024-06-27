@@ -65,6 +65,9 @@ sudo apt update
 echo "Installing Elasticsearch..."
 sudo apt install -y elasticsearch
 
+# Ensure the Elasticsearch configuration directory exists
+sudo mkdir -p /etc/elasticsearch
+
 # Configure Elasticsearch
 echo "Configuring Elasticsearch..."
 sudo bash -c 'cat << EOF > /etc/elasticsearch/elasticsearch.yml
@@ -101,6 +104,9 @@ echo "y" | sudo /usr/share/elasticsearch/bin/elasticsearch-setup-passwords auto 
 echo "Installing Logstash..."
 sudo apt install -y logstash
 
+# Ensure the Logstash configuration directory exists
+sudo mkdir -p /etc/logstash/conf.d
+
 # Configure Logstash (this is a basic config, adjust as needed)
 echo "Configuring Logstash..."
 sudo bash -c 'cat << EOF > /etc/logstash/conf.d/logstash.conf
@@ -128,6 +134,9 @@ sudo systemctl start logstash
 # Install Kibana
 echo "Installing Kibana..."
 sudo apt install -y kibana
+
+# Ensure the Kibana configuration directory exists
+sudo mkdir -p /etc/kibana
 
 # Configure Kibana
 echo "Configuring Kibana..."
