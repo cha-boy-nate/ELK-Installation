@@ -68,9 +68,6 @@ sudo apt install -y elasticsearch
 # Ensure the Elasticsearch configuration directory exists
 sudo mkdir -p /etc/elasticsearch
 
-# Ensure the jvm.options file exists
-sudo cp /usr/share/elasticsearch/config/jvm.options /etc/elasticsearch/jvm.options
-
 # Configure Elasticsearch
 echo "Configuring Elasticsearch..."
 sudo bash -c 'cat << EOF > /etc/elasticsearch/elasticsearch.yml
@@ -81,6 +78,12 @@ http.port: 9200
 discovery.type: single-node
 xpack.security.enabled: true
 EOF'
+
+# Ensure the jvm.options file exists
+if [ ! -f /etc/elasticsearch/jvm.options ]; then
+  echo "Creating default jvm.options file..."
+  sudo cp /usr/share/elasticsearch/config/jvm.options /etc/elasticsearch/
+fi
 
 # Start and enable Elasticsearch service
 echo "Starting Elasticsearch service..."
@@ -145,4 +148,25 @@ sudo mkdir -p /etc/kibana
 # Configure Kibana
 echo "Configuring Kibana..."
 sudo bash -c 'cat << EOF > /etc/kibana/kibana.yml
-server.po
+server.port: 5601
+server.host: "localhost"
+elasticsearch.hosts: ["http://localhost:9200"]
+elasticsearch.username: "elastic"
+elasticsearch.password: "$ELASTIC_PASSWORD"
+xpack.security.enabled: true
+EOF'
+
+# Start and enable Kibana service
+echo "Starting Kibana service..."
+sudo systemctl enable kibana
+sudo systemctl start kibana
+
+# Set the kibana user's password
+echo "Setting Kibana user password..."
+until curl -s -X POST "localhost:9200/_security/user/kibana/_password" -H "Content-Type: application/json" -u elastic:$ELASTIC_PASSWORD -d "{ \"password\": \"$KIBANA_PASSWORD\" }"; do
+  echo "Kibana is not ready yet. Waiting..."
+  sleep 5
+done
+
+echo "ELK Stack installation and configuration completed."
+echo "You can access Kibana at http://localhost:5601 with username 'elastic' and the password you set."
