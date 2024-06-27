@@ -89,6 +89,7 @@ sudo systemctl start elasticsearch
 if ! sudo systemctl is-active --quiet elasticsearch; then
   echo "Elasticsearch failed to start. Checking logs..."
   sudo journalctl -u elasticsearch -xe
+  sudo cat /var/log/elasticsearch/elasticsearch.log
   exit 1
 fi
 
