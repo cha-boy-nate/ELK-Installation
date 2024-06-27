@@ -1,22 +1,24 @@
 #!/bin/bash
 
-# Exit on error
+# Exit immediately if a command exits with a non-zero status
 set -e
 
 # Variables for passwords
 ELASTIC_PASSWORD="your_elastic_password"
 KIBANA_PASSWORD="your_kibana_password"
 
-# Function to stop and remove services if they exist
+# Function to stop and disable services if they exist
 stop_and_remove_service() {
   SERVICE=$1
-  if systemctl is-active --quiet $SERVICE; then
-    echo "Stopping $SERVICE service..."
-    sudo systemctl stop $SERVICE
-  fi
-  if systemctl is-enabled --quiet $SERVICE; then
-    echo "Disabling $SERVICE service..."
-    sudo systemctl disable $SERVICE
+  if systemctl list-units --full -all | grep -Fq "$SERVICE.service"; then
+    if systemctl is-active --quiet $SERVICE; then
+      echo "Stopping $SERVICE service..."
+      sudo systemctl stop $SERVICE
+    fi
+    if systemctl is-enabled --quiet $SERVICE; then
+      echo "Disabling $SERVICE service..."
+      sudo systemctl disable $SERVICE
+    fi
   fi
 }
 
@@ -65,8 +67,10 @@ sudo apt update
 echo "Installing Elasticsearch..."
 sudo apt install -y elasticsearch
 
-# Ensure the Elasticsearch configuration directory exists
+# Ensure necessary directories exist
 sudo mkdir -p /etc/elasticsearch
+sudo mkdir -p /var/lib/elasticsearch
+sudo mkdir -p /var/log/elasticsearch
 
 # Configure Elasticsearch
 echo "Configuring Elasticsearch..."
@@ -79,7 +83,7 @@ discovery.type: single-node
 xpack.security.enabled: true
 EOF'
 
-# Ensure the jvm.options file exists or create it if it doesn't
+# Ensure the jvm.options file exists
 if [ ! -f /etc/elasticsearch/jvm.options ]; then
   echo "Creating default jvm.options file..."
   sudo bash -c 'cat << EOF > /etc/elasticsearch/jvm.options
@@ -102,10 +106,6 @@ if [ ! -f /etc/elasticsearch/jvm.options ]; then
 -XX:+DisableExplicitGC
 EOF'
 fi
-
-# Ensure the data directories exist
-sudo mkdir -p /var/lib/elasticsearch
-sudo mkdir -p /var/log/elasticsearch
 
 # Set ownership and permissions
 sudo chown -R elasticsearch:elasticsearch /etc/elasticsearch
